@@ -4,6 +4,8 @@ Search and browse [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 
 
 ![platform](https://img.shields.io/badge/platform-macOS-lightgrey) ![license](https://img.shields.io/badge/license-MIT-blue)
 
+**English** | [中文](README_CN.md)
+
 ![screenshot](screenshot.png)
 
 ## Features

@@ -269,7 +269,11 @@ public:
     }
 
     void setKeywords(const QStringList &kw) { m_keywords = kw; }
-    void setDarkMode(bool dark) { m_dark = dark; }
+    void setDarkMode(bool dark) {
+        m_dark = dark;
+        QString bg = dark ? "#1c1c1e" : "#ffffff";
+        m_container->setStyleSheet(QString("background:%1;").arg(bg));
+    }
 
     void showEmpty(const QString &text) {
         clear();

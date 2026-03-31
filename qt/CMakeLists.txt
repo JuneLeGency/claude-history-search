@@ -12,13 +12,18 @@ endif()
 
 find_package(Qt6 REQUIRED COMPONENTS Widgets Concurrent)
 
+set(APP_ICON "${CMAKE_CURRENT_SOURCE_DIR}/AppIcon.icns")
+set_source_files_properties(${APP_ICON} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
+
 add_executable(claude-his-search
     main.cpp
     types.h
     chatwidget.h
+    sessiondelegate.h
     parser.h parser.cpp
     engine.h engine.cpp
     mainwindow.h mainwindow.cpp
+    ${APP_ICON}
 )
 
 target_link_libraries(claude-his-search PRIVATE
@@ -32,5 +37,6 @@ if(APPLE)
         MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_GUI_IDENTIFIER "com.claude.his-search"
         MACOSX_BUNDLE_BUNDLE_NAME "Claude History Search"
+        MACOSX_BUNDLE_ICON_FILE "AppIcon.icns"
     )
 endif()

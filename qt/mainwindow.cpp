@@ -1,4 +1,5 @@
 #include "mainwindow.h"
+#include "sessiondelegate.h"
 #include <QApplication>
 #include <QClipboard>
 #include <QHBoxLayout>
@@ -129,9 +130,13 @@ void MainWindow::buildUI() {
     viewMenu->addAction(tr("切换深色/浅色模式"), QKeySequence("Ctrl+T"), this, [this]() {
         m_darkMode = !m_darkMode;
         qApp->setStyleSheet(buildTheme(m_darkMode));
-        // 更新 chatwidget 和气泡的背景色
-        QString chatBg = m_darkMode ? "#1c1c1e" : "#ffffff";
-        m_chatWidget->setStyleSheet(QString("QScrollArea{background:%1; border:none;}").arg(chatBg));
+        m_chatWidget->setDarkMode(m_darkMode);
+        QString bg = m_darkMode ? "#1c1c1e" : "#ffffff";
+        m_chatWidget->setStyleSheet(QString("QScrollArea{background:%1; border:none;}").arg(bg));
+        // 更新会话列表 delegate
+        if (auto *d = qobject_cast<SessionDelegate*>(m_sessionList->itemDelegate()))
+            d->m_dark = m_darkMode;
+        m_sessionList->viewport()->update();
         if (m_selectedSession >= 0) renderChat();
     });
 
@@ -163,6 +168,33 @@ void MainWindow::buildUI() {
     navMenu->addSeparator();
     navMenu->addAction(tr("复制 Resume 命令"), QKeySequence("Ctrl+Shift+C"), this, &MainWindow::copyResume);
 
+    auto *helpMenu = mb->addMenu(tr("帮助"));
+    helpMenu->addAction(tr("快捷键一览..."), this, [this]() {
+        QMessageBox::information(this, tr("快捷键"),
+            tr("<h3>搜索</h3>"
+               "<table cellpadding=4>"
+               "<tr><td><b>⌘F</b></td><td>聚焦搜索框</td></tr>"
+               "<tr><td><b>Enter</b></td><td>关键词搜索</td></tr>"
+               "<tr><td><b>⌘⇧F</b></td><td>语义搜索 (需先构建索引)</td></tr>"
+               "<tr><td><b>Esc</b></td><td>清除搜索</td></tr>"
+               "<tr><td><b>⌘G</b></td><td>下一个匹配结果</td></tr>"
+               "<tr><td><b>⌘⇧G</b></td><td>上一个匹配结果</td></tr>"
+               "</table>"
+               "<h3>导航</h3>"
+               "<table cellpadding=4>"
+               "<tr><td><b>⌘[</b></td><td>上一页</td></tr>"
+               "<tr><td><b>⌘]</b></td><td>下一页</td></tr>"
+               "<tr><td><b>⌘⇧C</b></td><td>复制 Resume 命令</td></tr>"
+               "</table>"
+               "<h3>显示</h3>"
+               "<table cellpadding=4>"
+               "<tr><td><b>⌘T</b></td><td>切换深色/浅色模式</td></tr>"
+               "<tr><td><b>⌘R</b></td><td>刷新会话列表</td></tr>"
+               "<tr><td><b>⌘U</b></td><td>更新嵌入索引</td></tr>"
+               "<tr><td><b>⌘,</b></td><td>设置</td></tr>"
+               "</table>"));
+    });
+
     // ── 状态栏 ──
     m_statusLabel = new QLabel(tr("扫描中..."));
     statusBar()->addWidget(m_statusLabel, 1);
@@ -186,40 +218,42 @@ void MainWindow::buildUI() {
     searchRow->setSpacing(6);
 
     m_keywordInput = new QLineEdit;
-    m_keywordInput->setPlaceholderText(tr("搜索会话内容..."));
+    m_keywordInput->setPlaceholderText(tr("搜索会话内容... (⌘F 聚焦, Enter 搜索, ⌘⇧F 语义, Esc 清除)"));
     connect(m_keywordInput, &QLineEdit::returnPressed, this, &MainWindow::keywordSearch);
     searchRow->addWidget(m_keywordInput, 1);
 
     auto *searchBtn = new QPushButton(tr("搜索"));
     searchBtn->setObjectName("accent");
+    searchBtn->setToolTip(tr("关键词搜索 (Enter)"));
     connect(searchBtn, &QPushButton::clicked, this, &MainWindow::keywordSearch);
     searchRow->addWidget(searchBtn);
 
     auto *semBtn = new QPushButton(tr("语义搜索"));
+    semBtn->setToolTip(tr("基于 Embedding 的语义搜索 (⌘⇧F)\n需先通过菜单「索引 → 更新索引」构建"));
     connect(semBtn, &QPushButton::clicked, this, &MainWindow::semanticSearch);
     searchRow->addWidget(semBtn);
 
     auto *clrBtn = new QPushButton(tr("清除"));
+    clrBtn->setToolTip(tr("清除搜索结果 (Esc)"));
     connect(clrBtn, &QPushButton::clicked, this, &MainWindow::clearSearch);
     searchRow->addWidget(clrBtn);
 
     // 结果导航
-    m_prevMatchBtn = new QPushButton("▲");
-    m_prevMatchBtn->setFixedWidth(32);
-    m_prevMatchBtn->setToolTip(tr("上一个结果 (Cmd+Shift+G)"));
-    m_prevMatchBtn->setEnabled(false);
+    m_prevMatchBtn = new QPushButton(tr("上个"));
+    m_prevMatchBtn->setToolTip(tr("上一个结果 (⌘⇧G)"));
+    m_prevMatchBtn->hide();
     connect(m_prevMatchBtn, &QPushButton::clicked, this, &MainWindow::prevMatch);
     searchRow->addWidget(m_prevMatchBtn);
 
     m_matchLabel = new QLabel;
-    m_matchLabel->setStyleSheet("color:#636366; font-size:11px; min-width:60px;");
+    m_matchLabel->setStyleSheet("color:#636366; font-size:11px;");
     m_matchLabel->setAlignment(Qt::AlignCenter);
+    m_matchLabel->hide();
     searchRow->addWidget(m_matchLabel);
 
-    m_nextMatchBtn = new QPushButton("▼");
-    m_nextMatchBtn->setFixedWidth(32);
-    m_nextMatchBtn->setToolTip(tr("下一个结果 (Cmd+G)"));
-    m_nextMatchBtn->setEnabled(false);
+    m_nextMatchBtn = new QPushButton(tr("下个"));
+    m_nextMatchBtn->setToolTip(tr("下一个结果 (⌘G)"));
+    m_nextMatchBtn->hide();
     connect(m_nextMatchBtn, &QPushButton::clicked, this, &MainWindow::nextMatch);
     searchRow->addWidget(m_nextMatchBtn);
 
@@ -250,6 +284,10 @@ void MainWindow::buildUI() {
     leftL->addWidget(m_sessionCountLabel);
 
     m_sessionList = new QListWidget;
+    auto *delegate = new SessionDelegate(m_sessionList);
+    delegate->m_dark = m_darkMode;
+    m_sessionList->setItemDelegate(delegate);
+    m_sessionList->setMouseTracking(true); // enable hover
     connect(m_sessionList, &QListWidget::currentRowChanged, this, &MainWindow::onSessionSelected);
     leftL->addWidget(m_sessionList);
     splitter->addWidget(leftW);
@@ -269,6 +307,7 @@ void MainWindow::buildUI() {
     titleRow->addWidget(m_chatTitle, 1);
     m_copyResumeBtn = new QPushButton(tr("复制 Resume"));
     m_copyResumeBtn->setEnabled(false);
+    m_copyResumeBtn->setToolTip(tr("复制 claude --resume 命令到剪贴板 (⌘⇧C)"));
     m_copyResumeBtn->setStyleSheet("QPushButton{font-size:11px; padding:4px 12px;}");
     connect(m_copyResumeBtn, &QPushButton::clicked, this, &MainWindow::copyResume);
     titleRow->addWidget(m_copyResumeBtn);
@@ -282,6 +321,7 @@ void MainWindow::buildUI() {
     auto *pageRow = new QHBoxLayout;
     pageRow->setContentsMargins(8, 4, 0, 0);
     m_prevBtn = new QPushButton("←"); m_prevBtn->setEnabled(false);
+    m_prevBtn->setToolTip(tr("上一页 (⌘[)"));
     m_prevBtn->setStyleSheet("font-size:11px; padding:4px 12px;");
     connect(m_prevBtn, &QPushButton::clicked, this, [this](){
         if(m_currentPage > 0) { m_currentPage--; renderChat(); }
@@ -291,6 +331,7 @@ void MainWindow::buildUI() {
     m_pageLabel->setStyleSheet("color:#636366; font-size:11px;");
     pageRow->addWidget(m_pageLabel);
     m_nextBtn = new QPushButton("→"); m_nextBtn->setEnabled(false);
+    m_nextBtn->setToolTip(tr("下一页 (⌘])"));
     m_nextBtn->setStyleSheet("font-size:11px; padding:4px 12px;");
     connect(m_nextBtn, &QPushButton::clicked, this, [this](){
         if(m_selectedSession >= 0) {
@@ -441,8 +482,9 @@ void MainWindow::keywordSearch() {
     refreshList();
     // 更新导航状态
     bool hasMatches = !m_allMatches.isEmpty();
-    m_prevMatchBtn->setEnabled(hasMatches);
-    m_nextMatchBtn->setEnabled(hasMatches);
+    m_prevMatchBtn->setVisible(hasMatches);
+    m_nextMatchBtn->setVisible(hasMatches);
+    m_matchLabel->setVisible(hasMatches);
 
     if (hasMatches) {
         m_currentMatch = 0;
@@ -473,9 +515,9 @@ void MainWindow::clearSearch() {
     m_currentMatch = -1;
     m_chatWidget->setKeywords({});
     m_chatWidget->setNormalizedKeywords({});
-    m_prevMatchBtn->setEnabled(false);
-    m_nextMatchBtn->setEnabled(false);
-    m_matchLabel->setText("");
+    m_prevMatchBtn->hide();
+    m_nextMatchBtn->hide();
+    m_matchLabel->hide();
     onScanDone();
 }
 

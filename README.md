@@ -2,7 +2,9 @@
 
 Search and browse [Claude Code](https://docs.anthropic.com/en/docs/claude-code) conversation history with keyword search, semantic search (local embedding), and a native Qt GUI.
 
-![screenshot](https://img.shields.io/badge/platform-macOS-lightgrey) ![license](https://img.shields.io/badge/license-MIT-blue)
+![platform](https://img.shields.io/badge/platform-macOS-lightgrey) ![license](https://img.shields.io/badge/license-MIT-blue)
+
+![screenshot](screenshot.png)
 
 ## Features
 

@@ -1,0 +1,32 @@
+# Build artifacts
+qt/build/
+target/
+build/
+dist/
+*.egg-info
+
+# Dependencies
+.venv/
+node_modules/
+
+# Python
+__pycache__/
+*.py[oc]
+
+# Rust
+Cargo.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Reference repos (cloned separately)
+reference/
+
+# Claude local state
+.claude/
+
+# Index data (user-specific)
+# ~/.claude_his_search/index/

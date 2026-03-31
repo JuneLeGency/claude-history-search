@@ -1,0 +1,25 @@
+[project]
+name = "claude-his-search"
+version = "0.2.0"
+description = "Claude Code 对话历史搜索与语义召回 GUI 工具 (本地 MLX/PyTorch Embedding)"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "PySide6>=6.8",
+    "numpy>=1.24",
+    "modelscope>=1.10",
+]
+
+[project.optional-dependencies]
+mlx = [
+    "mlx-embeddings>=0.0.5",
+    "mlx>=0.22",
+]
+torch = [
+    "sentence-transformers>=2.7.0",
+    "transformers>=4.51.0",
+    "torch>=2.0",
+]
+
+[project.scripts]
+claude-search = "claude_his_search.app:main"
